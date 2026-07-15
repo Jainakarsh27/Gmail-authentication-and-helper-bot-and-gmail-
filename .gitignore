@@ -1,13 +1,17 @@
+# Database files
+backend/data/
+*.mv.db
+*.trace.db
+
+# Logs
+*.log
+
+# IDE
 .vscode/
 .idea/
 
-backend/target/
-frontend/node_modules/
-frontend/dist/
-mobile/node_modules/
+# Node
+node_modules/
 
-backend/startup.log
-backend/startup.err
-*.log
-.env
-.env.*
+# Java
+target/

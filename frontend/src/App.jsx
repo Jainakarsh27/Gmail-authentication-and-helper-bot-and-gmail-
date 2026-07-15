@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
 import AuthPage from './components/AuthPage';
 import ForgotOrNewUserPage from './components/ForgotOrNewUserPage';
+import ProfileSetupPage from './components/ProfileSetupPage';
+import CreateAccountFlow from './components/CreateAccountFlow';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [route, setRoute] = useState(window.location.hash || '#/login');
+  const [route, setRoute] = useState(window.location.hash || '#/setup-profile');
 
   // Check authentication status
   const checkAuth = () => {
@@ -31,7 +33,7 @@ function App() {
         localStorage.setItem('nm_current_user', JSON.stringify(profileUser));
         
         // If current route is auth-related, redirect to mail
-        if (['#/login', '#/register', '#/forgot-password', '#/new-user'].includes(window.location.hash)) {
+        if (['#/setup-profile', '#/login', '#/create-name', '#/forgot-email', '#/forgot-password', '#/new-user'].includes(window.location.hash)) {
           window.location.hash = '#/mail';
         }
       })
@@ -40,13 +42,13 @@ function App() {
         const localUser = localStorage.getItem('nm_current_user');
         if (localUser) {
           setIsAuthenticated(true);
-          if (['#/login', '#/register', '#/forgot-password', '#/new-user', ''].includes(window.location.hash)) {
+          if (['#/setup-profile', '#/login', '#/create-name', '#/forgot-email', '#/forgot-password', '#/new-user', ''].includes(window.location.hash)) {
             window.location.hash = '#/mail';
           }
         } else {
           setIsAuthenticated(false);
           if (window.location.hash === '#/mail') {
-            window.location.hash = '#/login';
+            window.location.hash = '#/setup-profile';
           }
         }
       });
@@ -59,7 +61,7 @@ function App() {
 
     // Listen to hash change for routing
     const handleHashChange = () => {
-      const currentHash = window.location.hash || '#/login';
+      const currentHash = window.location.hash || '#/setup-profile';
       setRoute(currentHash);
     };
 
@@ -70,12 +72,12 @@ function App() {
   // Sync route on auth state changes
   useEffect(() => {
     if (isAuthenticated) {
-      if (['#/login', '#/register', '#/forgot-password', '#/new-user', ''].includes(window.location.hash)) {
+      if (['#/setup-profile', '#/login', '#/create-name', '#/forgot-email', '#/forgot-password', '#/new-user', ''].includes(window.location.hash)) {
         window.location.hash = '#/mail';
       }
     } else {
       if (window.location.hash === '#/mail') {
-        window.location.hash = '#/login';
+        window.location.hash = '#/setup-profile';
       }
     }
   }, [isAuthenticated]);
@@ -96,19 +98,23 @@ function App() {
     // Attempt backend logout redirect or direct fallback
     fetch('/logout', { method: 'POST' })
       .finally(() => {
-        navigateTo('login');
+        navigateTo('setup-profile');
       });
   };
 
   // Routing render logic
   const renderContent = () => {
     switch (route) {
+      case '#/setup-profile':
+        return <ProfileSetupPage navigateTo={navigateTo} onLoginSuccess={handleLoginSuccess} />;
       case '#/login':
         return <AuthPage onLoginSuccess={handleLoginSuccess} navigateTo={navigateTo} />;
-      case '#/register':
-        return <AuthPage onLoginSuccess={handleLoginSuccess} navigateTo={navigateTo} />;
+      case '#/forgot-email':
+        return <ForgotOrNewUserPage mode="forgot-email" navigateTo={navigateTo} />;
       case '#/forgot-password':
         return <ForgotOrNewUserPage mode="forgot" navigateTo={navigateTo} />;
+      case '#/create-name':
+        return <CreateAccountFlow navigateTo={navigateTo} onLoginSuccess={handleLoginSuccess} />;
       case '#/new-user':
         return (
           <ForgotOrNewUserPage 
@@ -119,13 +125,13 @@ function App() {
         );
       case '#/mail':
         if (!isAuthenticated) {
-          // If trying to access mail but not authenticated, fallback to login
-          return <AuthPage onLoginSuccess={handleLoginSuccess} navigateTo={navigateTo} />;
+          // If trying to access mail but not authenticated, fallback to setup profile
+          return <ProfileSetupPage navigateTo={navigateTo} onLoginSuccess={handleLoginSuccess} />;
         }
         return <Dashboard onLogout={handleLogout} />;
       default:
         // Fallback for unknown route
-        return <AuthPage onLoginSuccess={handleLoginSuccess} navigateTo={navigateTo} />;
+        return <ProfileSetupPage navigateTo={navigateTo} onLoginSuccess={handleLoginSuccess} />;
     }
   };
 

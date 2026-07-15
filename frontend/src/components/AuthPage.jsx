@@ -1,38 +1,54 @@
 import React, { useState } from 'react';
 
 const AuthPage = ({ onLoginSuccess, navigateTo }) => {
-  const [activeTab, setActiveTab] = useState('login'); // 'login' | 'register'
-  
-  // Login form fields
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
-  
-  // Register form fields
-  const [registerEmail, setRegisterEmail] = useState('');
-  const [registerPassword, setRegisterPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  
-  // Status message
+  const [loginStep, setLoginStep] = useState(1); // 1: Email, 2: Password
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  const handleLogin = (e) => {
+  const handleEmailNext = (e) => {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
 
-    if (!loginEmail || !loginPassword) {
-      setErrorMsg('Please enter both email and password.');
+    if (!email.trim()) {
+      setErrorMsg('Please enter your email address.');
       return;
     }
 
-    // Retrieve registered users from localStorage
+    if (!email.includes('@')) {
+      setErrorMsg('Please enter a valid email address.');
+      return;
+    }
+
+    // Check if email exists in simulated database
     const users = JSON.parse(localStorage.getItem('nm_registered_users') || '[]');
-    const matchedUser = users.find(u => u.email.toLowerCase() === loginEmail.toLowerCase());
+    const userExists = users.some(u => u.email.toLowerCase() === email.toLowerCase());
+
+    if (userExists) {
+      setLoginStep(2);
+    } else {
+      setErrorMsg('Account not found. Click "Create account" to sign up, or click "Google Workspace" / "Demo Sign-in" below.');
+    }
+  };
+
+  const handlePasswordSubmit = (e) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    if (!password) {
+      setErrorMsg('Please enter your password.');
+      return;
+    }
+
+    const users = JSON.parse(localStorage.getItem('nm_registered_users') || '[]');
+    const matchedUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
 
     if (matchedUser) {
-      if (matchedUser.password === loginPassword) {
+      if (matchedUser.password === password) {
         setSuccessMsg('Login successful! Loading dashboard...');
         
         // Save current active session
@@ -40,250 +56,245 @@ const AuthPage = ({ onLoginSuccess, navigateTo }) => {
         
         setTimeout(() => {
           onLoginSuccess(matchedUser);
-        }, 800);
+        }, 1000);
       } else {
-        setErrorMsg('Invalid password. Please try again.');
+        setErrorMsg('Wrong password. Try again or click Forgot password to reset it.');
       }
     } else {
-      // Allow demo login with any email if no users registered yet
-      setSuccessMsg('Creating a temporary session for Demo...');
-      const demoUser = {
-        email: loginEmail,
-        name: loginEmail.split('@')[0],
-        regNo: 'TEMP-DEMO',
-        collegeEmail: loginEmail,
-        neoPatId: 'DEMO-NP',
-        alarmPassword: 'STOP'
-      };
-      
-      localStorage.setItem('nm_current_user', JSON.stringify(demoUser));
-      setTimeout(() => {
-        onLoginSuccess(demoUser);
-      }, 800);
+      setErrorMsg('An unexpected error occurred. Please restart the sign-in.');
     }
-  };
-
-  const handleRegister = (e) => {
-    e.preventDefault();
-    setErrorMsg('');
-    setSuccessMsg('');
-
-    if (!registerEmail || !registerPassword || !confirmPassword) {
-      setErrorMsg('All fields are required.');
-      return;
-    }
-
-    if (registerPassword !== confirmPassword) {
-      setErrorMsg('Passwords do not match.');
-      return;
-    }
-
-    if (registerPassword.length < 6) {
-      setErrorMsg('Password must be at least 6 characters long.');
-      return;
-    }
-
-    const users = JSON.parse(localStorage.getItem('nm_registered_users') || '[]');
-    const exists = users.some(u => u.email.toLowerCase() === registerEmail.toLowerCase());
-
-    if (exists) {
-      setErrorMsg('This email is already registered.');
-      return;
-    }
-
-    // Save temporary registration in localStorage
-    const newUser = {
-      email: registerEmail,
-      password: registerPassword,
-      // Default placeholder details to be configured on New User onboarding screen
-      name: '',
-      regNo: '',
-      collegeEmail: registerEmail,
-      neoPatId: '',
-      alarmPassword: 'STOP'
-    };
-
-    users.push(newUser);
-    localStorage.setItem('nm_registered_users', JSON.stringify(users));
-    
-    // Store as temporary session for onboarding
-    localStorage.setItem('nm_current_user', JSON.stringify(newUser));
-
-    setSuccessMsg('Account created successfully! Redirecting to setup details...');
-    setTimeout(() => {
-      // Navigate to onboarding details (New User page)
-      navigateTo('new-user');
-    }, 1000);
   };
 
   const handleGoogleSignIn = () => {
-    // Redirection to Spring Boot OAuth2 endpoint
+    // Redirection to Spring Boot OAuth2 endpoint to connect to real Google IDs
     window.location.href = '/oauth2/authorization/google';
   };
 
   const handleDemoSignIn = () => {
-    // Immediate login success for quick demo
     const demoUser = {
-      email: 'demo.student@university.edu',
+      email: 'demo.student@gmail.com',
       name: 'Demo Student',
       regNo: 'REG123456',
-      collegeEmail: 'demo.student@university.edu',
+      collegeEmail: 'demo.student@gmail.com',
       neoPatId: 'NP998877',
-      alarmPassword: 'STOP'
+      alarmPassword: 'STOP',
+      alarmTone: 'emergency'
     };
+    
+    const users = JSON.parse(localStorage.getItem('nm_registered_users') || '[]');
+    if (!users.some(u => u.email.toLowerCase() === demoUser.email.toLowerCase())) {
+      users.push(demoUser);
+      localStorage.setItem('nm_registered_users', JSON.stringify(users));
+    }
+    
     localStorage.setItem('nm_current_user', JSON.stringify(demoUser));
-    onLoginSuccess(demoUser);
+    setSuccessMsg('Demo Login successful! Redirecting...');
+    
+    setTimeout(() => {
+      onLoginSuccess(demoUser);
+    }, 1000);
+  };
+
+  const handleBack = () => {
+    if (loginStep === 2) {
+      setLoginStep(1);
+      setErrorMsg('');
+    } else {
+      navigateTo('setup-profile');
+    }
   };
 
   return (
-    <div className="nm-auth-container">
-      <div className="nm-auth-bg-blob-1"></div>
-      <div className="nm-auth-bg-blob-2"></div>
-      
-      <div className="nm-auth-card">
-        <div className="nm-auth-header">
-          <div className="nm-auth-logo-container">
-            <div className="nm-auth-logo-icon">N</div>
-            <div className="nm-auth-logo-text">NexMail</div>
-          </div>
-          <h2 className="nm-auth-title">Welcome to NexMail</h2>
-          <p className="nm-auth-subtitle">Intelligent Academic Email Assistant</p>
-        </div>
+    <div className="chrome-layout-bg">
+      {/* Back Button */}
+      <button className="chrome-back-btn" onClick={handleBack} title="Back">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+          <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+        </svg>
+      </button>
 
-        <div className="nm-auth-tabs">
-          <button 
-            className={`nm-auth-tab ${activeTab === 'login' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('login'); setErrorMsg(''); setSuccessMsg(''); }}
-          >
-            Login
-          </button>
-          <button 
-            className={`nm-auth-tab ${activeTab === 'register' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('register'); setErrorMsg(''); setSuccessMsg(''); }}
-          >
-            Register
-          </button>
-        </div>
+      {/* Floating background shapes */}
+      <div className="chrome-shape chrome-shape-blue"></div>
+      <div className="chrome-shape chrome-shape-red"></div>
+      <div className="chrome-shape chrome-shape-yellow"></div>
+      <div className="chrome-shape chrome-shape-green"></div>
 
-        {errorMsg && (
-          <div className="nm-status-badge error" style={{ width: '100%' }}>
-            ⚠️ {errorMsg}
-          </div>
-        )}
-
-        {successMsg && (
-          <div className="nm-status-badge success" style={{ width: '100%' }}>
-            ✓ {successMsg}
-          </div>
-        )}
-
-        {activeTab === 'login' ? (
-          <form className="nm-auth-form" onSubmit={handleLogin}>
-            <div className="nm-input-group">
-              <label className="nm-input-label">Email Address</label>
-              <input 
-                type="email" 
-                className="nm-input-field" 
-                placeholder="you@college.edu"
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-              />
-            </div>
-            
-            <div className="nm-input-group">
-              <label className="nm-input-label">Password</label>
-              <input 
-                type="password" 
-                className="nm-input-field" 
-                placeholder="••••••••"
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-              />
-            </div>
-
-            <div className="nm-auth-actions">
-              <label className="nm-auth-checkbox-label">
-                <input 
-                  type="checkbox" 
-                  className="nm-auth-checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                />
-                Remember me
-              </label>
-              <span className="nm-auth-link" onClick={() => navigateTo('forgot-password')}>
-                Forgot Password?
-              </span>
-            </div>
-
-            <button type="submit" className="nm-btn-primary">
-              Log In
-            </button>
-          </form>
-        ) : (
-          <form className="nm-auth-form" onSubmit={handleRegister}>
-            <div className="nm-input-group">
-              <label className="nm-input-label">Email Address</label>
-              <input 
-                type="email" 
-                className="nm-input-field" 
-                placeholder="new.student@college.edu"
-                value={registerEmail}
-                onChange={(e) => setRegisterEmail(e.target.value)}
-              />
-            </div>
-            
-            <div className="nm-input-group">
-              <label className="nm-input-label">Password</label>
-              <input 
-                type="password" 
-                className="nm-input-field" 
-                placeholder="•••••••• (Min 6 chars)"
-                value={registerPassword}
-                onChange={(e) => setRegisterPassword(e.target.value)}
-              />
-            </div>
-
-            <div className="nm-input-group">
-              <label className="nm-input-label">Confirm Password</label>
-              <input 
-                type="password" 
-                className="nm-input-field" 
-                placeholder="••••••••"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
-            </div>
-
-            <button type="submit" className="nm-btn-primary">
-              Register Account
-            </button>
-          </form>
-        )}
-
-        <div className="nm-auth-divider">or continue with</div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <button className="nm-btn-social" onClick={handleGoogleSignIn}>
-            <svg className="nm-btn-social-icon" viewBox="0 0 24 24">
-              <path fill="#EA4335" d="M12 5.04c1.66 0 3.2.57 4.38 1.69l3.27-3.27C17.67 1.48 15.02 1 12 1 7.28 1 3.25 3.72 1.34 7.69l3.87 3C6.13 7.8 8.85 5.04 12 5.04z"/>
-              <path fill="#4285F4" d="M23.49 12.27c0-.81-.07-1.59-.2-2.35H12v4.51h6.48c-.29 1.48-1.14 2.73-2.4 3.58l3.73 2.89c2.18-2.01 3.48-4.97 3.48-8.63z"/>
-              <path fill="#FBBC05" d="M5.21 14.31c-.24-.72-.38-1.49-.38-2.31s.14-1.59.38-2.31L1.34 6.69C.49 8.39 0 10.14 0 12s.49 3.61 1.34 5.31l3.87-3z"/>
-              <path fill="#34A853" d="M12 23c3.24 0 5.97-1.07 7.96-2.91l-3.73-2.89c-1.03.69-2.35 1.1-4.23 1.1-3.15 0-5.87-2.76-6.79-5.65l-3.87 3C3.25 20.28 7.28 23 12 23z"/>
+      <div className="chrome-split-card">
+        {/* Left Side */}
+        <div className="chrome-card-left">
+          <div className="chrome-google-logo">
+            <svg viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" />
             </svg>
-            Google Workspace
-          </button>
-          
-          <button className="nm-btn-social" onClick={handleDemoSignIn} style={{ borderStyle: 'dashed', borderColor: '#3b82f6', color: '#3b82f6' }}>
-            ⚡ Fast Demo Sign-In
-          </button>
+            <span className="chrome-google-logo-text">NexMail</span>
+          </div>
+
+          {loginStep === 1 ? (
+            <>
+              <h2 className="chrome-card-title">Sign in to NexMail</h2>
+              <p className="chrome-card-subtitle">Use your NexMail or Gmail Account to access your college dashboard</p>
+            </>
+          ) : (
+            <>
+              <h2 className="chrome-card-title">Welcome</h2>
+              <div 
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '8px', 
+                  background: 'rgba(255, 255, 255, 0.05)', 
+                  border: '1px solid rgba(255, 255, 255, 0.1)', 
+                  borderRadius: '16px', 
+                  padding: '4px 12px',
+                  marginTop: '12px'
+                }}
+              >
+                <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#8ab4f8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', color: '#202124', fontWeight: 'bold' }}>
+                  {email.charAt(0).toUpperCase()}
+                </div>
+                <span style={{ fontSize: '0.85rem', color: '#e8eaed' }}>{email}</span>
+              </div>
+            </>
+          )}
         </div>
 
-        <div className="nm-auth-footer">
-          <p>Already a registered user with profile parameters?</p>
-          <span className="nm-auth-link" onClick={() => navigateTo('new-user')}>
-            Skip to Profile Setup →
-          </span>
+        {/* Right Side */}
+        <div className="chrome-card-right">
+          {errorMsg && (
+            <div className="nm-status-badge error" style={{ width: '100%', marginBottom: '16px' }}>
+              ⚠️ {errorMsg}
+            </div>
+          )}
+
+          {successMsg && (
+            <div className="nm-status-badge success" style={{ width: '100%', marginBottom: '16px' }}>
+              ✓ {successMsg}
+            </div>
+          )}
+
+          {loginStep === 1 ? (
+            /* EMAIL INPUT STEP */
+            <form className="chrome-form-container" onSubmit={handleEmailNext}>
+              <div className="chrome-input-group">
+                <input
+                  type="text"
+                  id="emailInput"
+                  className={`chrome-input ${errorMsg && !email ? 'chrome-input-error' : ''}`}
+                  placeholder=" "
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoFocus
+                />
+                <label htmlFor="emailInput" className="chrome-label">Email address</label>
+              </div>
+
+              <button 
+                type="button" 
+                className="chrome-link-btn" 
+                onClick={() => navigateTo('forgot-email')}
+              >
+                Forgot email?
+              </button>
+
+              <div style={{ fontSize: '0.85rem', color: '#9aa0a6', lineHeight: '1.4', marginTop: '10px' }}>
+                Not your computer? Use a Guest window to sign in privately.
+              </div>
+
+              {/* Social Buttons */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '16px' }}>
+                <button 
+                  type="button" 
+                  className="chrome-btn-dark" 
+                  onClick={handleGoogleSignIn} 
+                  style={{ borderRadius: '8px', height: '44px', gap: '10px' }}
+                >
+                  <svg className="nm-btn-social-icon" viewBox="0 0 24 24" style={{ width: '18px', height: '18px' }}>
+                    <path fill="#EA4335" d="M12 5.04c1.66 0 3.2.57 4.38 1.69l3.27-3.27C17.67 1.48 15.02 1 12 1 7.28 1 3.25 3.72 1.34 7.69l3.87 3C6.13 7.8 8.85 5.04 12 5.04z"/>
+                    <path fill="#4285F4" d="M23.49 12.27c0-.81-.07-1.59-.2-2.35H12v4.51h6.48c-.29 1.48-1.14 2.73-2.4 3.58l3.73 2.89c2.18-2.01 3.48-4.97 3.48-8.63z"/>
+                    <path fill="#FBBC05" d="M5.21 14.31c-.24-.72-.38-1.49-.38-2.31s.14-1.59.38-2.31L1.34 6.69C.49 8.39 0 10.14 0 12s.49 3.61 1.34 5.31l3.87-3z"/>
+                    <path fill="#34A853" d="M12 23c3.24 0 5.97-1.07 7.96-2.91l-3.73-2.89c-1.03.69-2.35 1.1-4.23 1.1-3.15 0-5.87-2.76-6.79-5.65l-3.87 3C3.25 20.28 7.28 23 12 23z"/>
+                  </svg>
+                  Sign in with Google Workspace
+                </button>
+                <button type="button" className="chrome-btn-dark" onClick={handleDemoSignIn} style={{ borderRadius: '8px', height: '44px', borderStyle: 'dashed' }}>
+                  ⚡ Fast Demo Sign-In
+                </button>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="chrome-card-footer">
+                <div>
+                  <button 
+                    type="button" 
+                    className="chrome-btn-text-only" 
+                    onClick={() => navigateTo('create-name')}
+                  >
+                    Create account
+                  </button>
+                </div>
+                <div>
+                  <button type="submit" className="chrome-btn-blue-rect">Next</button>
+                </div>
+              </div>
+            </form>
+          ) : (
+            /* PASSWORD INPUT STEP */
+            <form className="chrome-form-container" onSubmit={handlePasswordSubmit}>
+              <div className="chrome-input-group">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  id="passwordInput"
+                  className={`chrome-input ${errorMsg ? 'chrome-input-error' : ''}`}
+                  placeholder=" "
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoFocus
+                />
+                <label htmlFor="passwordInput" className="chrome-label">Enter your password</label>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
+                <input
+                  type="checkbox"
+                  id="showPasswordCheck"
+                  checked={showPassword}
+                  onChange={(e) => setShowPassword(e.target.checked)}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+                <label htmlFor="showPasswordCheck" style={{ cursor: 'pointer', color: '#e8eaed' }}>Show password</label>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="chrome-card-footer" style={{ marginTop: '48px' }}>
+                <div>
+                  <button 
+                    type="button" 
+                    className="chrome-btn-text-only" 
+                    onClick={() => navigateTo('forgot-password')}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+                <div>
+                  <button type="submit" className="chrome-btn-blue-rect">Sign in</button>
+                </div>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
+
+      {/* Chrome Style Footer */}
+      <div className="chrome-footer-row">
+        <div>
+          <span style={{ fontSize: '0.75rem' }}>English (United States)</span>
+        </div>
+        <div className="chrome-footer-links">
+          <span className="chrome-footer-link">Help</span>
+          <span className="chrome-footer-link">Privacy</span>
+          <span className="chrome-footer-link">Terms</span>
         </div>
       </div>
     </div>
